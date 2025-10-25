@@ -1,0 +1,496 @@
+import React, { useState, useEffect } from 'react';
+import { Camera, MapPin, Send, CheckCircle, Clock, AlertCircle, TrendingUp, Zap } from 'lucide-react';
+
+const CivicSnapApp = () => {
+  const [view, setView] = useState('home');
+  const [capturedImage, setCapturedImage] = useState(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysis, setAnalysis] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [hoveredCard, setHoveredCard] = useState(null);
+  
+  const [reports, setReports] = useState([
+    { id: 1, type: 'Pothole', severity: 'high', status: 'in-progress', date: '2 days ago', location: 'Main St & 5th Ave' },
+    { id: 2, type: 'Broken Streetlight', severity: 'medium', status: 'resolved', date: '5 days ago', location: 'Park Boulevard' },
+    { id: 3, type: 'Graffiti', severity: 'low', status: 'pending', date: '1 week ago', location: 'Community Center' },
+  ]);
+  
+  const [stats, setStats] = useState({
+    submitted: 12,
+    resolved: 8,
+    avgResponseTime: '3.5 days',
+    impactScore: 94
+  });
+
+  const issueTypes = [
+    { name: 'Pothole', severity: 'high', dept: 'Road Maintenance' },
+    { name: 'Broken Streetlight', severity: 'medium', dept: 'Public Lighting' },
+    { name: 'Graffiti', severity: 'low', dept: 'Sanitation' },
+    { name: 'Illegal Dumping', severity: 'high', dept: 'Sanitation' },
+    { name: 'Damaged Sidewalk', severity: 'medium', dept: 'Road Maintenance' },
+    { name: 'Fallen Tree', severity: 'high', dept: 'Parks & Recreation' },
+  ];
+
+  useEffect(() => {
+    if (analyzing) {
+      setProgress(0);
+      const interval = setInterval(() => {
+        setProgress(prev => {
+          if (prev >= 90) return prev;
+          return prev + Math.random() * 15;
+        });
+      }, 200);
+      return () => clearInterval(interval);
+    }
+  }, [analyzing]);
+
+  const handleImageCapture = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCapturedImage(reader.result);
+        setTimeout(() => {
+          const randomIssue = issueTypes[Math.floor(Math.random() * issueTypes.length)];
+          setAnalysis({
+            type: randomIssue.name,
+            severity: randomIssue.severity,
+            department: randomIssue.dept,
+            confidence: Math.floor(Math.random() * 20) + 75,
+            location: 'Current GPS Location',
+            priority: randomIssue.severity === 'high' ? 'Urgent' : 'Standard',
+            estimatedResponse: randomIssue.severity === 'high' ? '24-48 hours' : '3-5 days',
+          });
+          setProgress(100);
+          setTimeout(() => {
+            setAnalyzing(false);
+            setView('review');
+          }, 500);
+        }, 2000);
+      };
+      reader.readAsDataURL(file);
+      setAnalyzing(true);
+      setView('analyzing');
+    }
+  };
+
+  const submitReport = () => {
+    setSubmitting(true);
+    setTimeout(() => {
+      setSubmitting(false);
+      setSubmitted(true);
+      const newReport = {
+        id: reports.length + 1,
+        type: analysis.type,
+        severity: analysis.severity,
+        status: 'pending',
+        date: 'Just now',
+        location: analysis.location
+      };
+      setReports([newReport, ...reports]);
+      setStats(prev => ({ ...prev, submitted: prev.submitted + 1 }));
+      setTimeout(() => resetForm(), 3000);
+    }, 1500);
+  };
+
+  const resetForm = () => {
+    setCapturedImage(null);
+    setAnalysis(null);
+    setSubmitted(false);
+    setProgress(0);
+    setView('home');
+  };
+
+  const getSeverityColor = (severity) => {
+    switch(severity) {
+      case 'high': return 'text-rose-700 bg-rose-50 border-rose-200';
+      case 'medium': return 'text-amber-700 bg-amber-50 border-amber-200';
+      case 'low': return 'text-emerald-700 bg-emerald-50 border-emerald-200';
+      default: return 'text-gray-700 bg-gray-50 border-gray-200';
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch(status) {
+      case 'resolved': return 'text-emerald-700 bg-emerald-100';
+      case 'in-progress': return 'text-sky-700 bg-sky-100';
+      case 'pending': return 'text-gray-700 bg-gray-100';
+      default: return 'text-gray-700 bg-gray-100';
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      {/* HEADER */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+        <div className="max-w-5xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div 
+                className="w-11 h-11 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-sm cursor-pointer"
+                style={{
+                  transform: hoveredCard === 'logo' ? 'scale(1.15) rotate(5deg)' : 'scale(1)',
+                  transition: 'all 0.3s ease'
+                }}
+                onMouseEnter={() => setHoveredCard('logo')}
+                onMouseLeave={() => setHoveredCard(null)}
+              >
+                <Camera className="text-white" size={22} />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">CivicSnap</h1>
+                <p className="text-xs text-gray-500">AI-Powered Reporting</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setView('home')}
+                style={{
+                  transform: hoveredCard === 'btn-report' ? 'scale(1.1)' : 'scale(1)',
+                  transition: 'all 0.3s ease'
+                }}
+                onMouseEnter={() => setHoveredCard('btn-report')}
+                onMouseLeave={() => setHoveredCard(null)}
+                className={`px-5 py-2.5 rounded-xl text-sm font-semibold ${
+                  view === 'home' || view === 'analyzing' || view === 'review'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-700'
+                }`}
+              >
+                Report
+              </button>
+              <button
+                onClick={() => setView('history')}
+                style={{
+                  transform: hoveredCard === 'btn-history' ? 'scale(1.1)' : 'scale(1)',
+                  transition: 'all 0.3s ease'
+                }}
+                onMouseEnter={() => setHoveredCard('btn-history')}
+                onMouseLeave={() => setHoveredCard(null)}
+                className={`px-5 py-2.5 rounded-xl text-sm font-semibold ${
+                  view === 'history'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-700'
+                }`}
+              >
+                History
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-5xl mx-auto px-6 py-6">
+        {/* STATS */}
+        <div className="grid grid-cols-4 gap-4 mb-6">
+          {[
+            { value: stats.submitted, label: 'Reports', color: 'from-sky-500 to-blue-600', id: 'stat-1' },
+            { value: stats.resolved, label: 'Resolved', color: 'from-emerald-500 to-teal-600', id: 'stat-2' },
+            { value: stats.avgResponseTime, label: 'Response', color: 'from-violet-500 to-purple-600', id: 'stat-3' },
+            { value: stats.impactScore, label: 'Score', color: 'from-amber-500 to-orange-600', id: 'stat-4' }
+          ].map((stat, i) => (
+            <div 
+              key={i} 
+              className="bg-white rounded-2xl p-5 shadow-sm border border-gray-200 cursor-pointer"
+              style={{
+                transform: hoveredCard === stat.id ? 'translateY(-12px) scale(1.05)' : 'translateY(0) scale(1)',
+                boxShadow: hoveredCard === stat.id ? '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' : '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseEnter={() => setHoveredCard(stat.id)}
+              onMouseLeave={() => setHoveredCard(null)}
+            >
+              <div className={`text-3xl font-bold bg-gradient-to-br ${stat.color} bg-clip-text text-transparent`}>
+                {stat.value}
+              </div>
+              <div className="text-xs text-gray-600 mt-1.5 font-medium">{stat.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* HOME SCREEN */}
+        {view === 'home' && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="p-10 text-center">
+              <div 
+                className="w-24 h-24 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl mx-auto flex items-center justify-center mb-6 shadow-md cursor-pointer"
+                style={{
+                  transform: hoveredCard === 'camera-icon' ? 'scale(1.2) rotate(10deg)' : 'scale(1) rotate(0deg)',
+                  boxShadow: hoveredCard === 'camera-icon' ? '0 25px 50px -12px rgba(16, 185, 129, 0.5)' : '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                  transition: 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                }}
+                onMouseEnter={() => setHoveredCard('camera-icon')}
+                onMouseLeave={() => setHoveredCard(null)}
+              >
+                <Camera className="text-white" size={40} />
+              </div>
+              <h2 className="text-3xl font-bold text-gray-900 mb-3">Report an Issue</h2>
+              <p className="text-gray-600 mb-8 max-w-lg mx-auto text-base leading-relaxed">
+                Take a photo of any urban problem. Our AI will analyze it and route it to the right department.
+              </p>
+              
+              <label className="inline-block cursor-pointer group">
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleImageCapture}
+                  className="hidden"
+                />
+                <div 
+                  className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-8 py-4 rounded-xl font-semibold shadow-md inline-flex items-center gap-2"
+                  style={{
+                    transform: hoveredCard === 'take-photo-btn' ? 'scale(1.15)' : 'scale(1)',
+                    boxShadow: hoveredCard === 'take-photo-btn' ? '0 20px 25px -5px rgba(16, 185, 129, 0.4)' : '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                    transition: 'all 0.3s ease'
+                  }}
+                  onMouseEnter={() => setHoveredCard('take-photo-btn')}
+                  onMouseLeave={() => setHoveredCard(null)}
+                >
+                  <Camera 
+                    size={20} 
+                    style={{
+                      transform: hoveredCard === 'take-photo-btn' ? 'rotate(15deg)' : 'rotate(0deg)',
+                      transition: 'transform 0.3s ease'
+                    }}
+                  />
+                  Take Photo
+                </div>
+              </label>
+
+              <div className="mt-10 pt-8 border-t border-gray-200">
+                <h3 className="text-sm font-semibold text-gray-700 mb-4">Detection Types</h3>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {issueTypes.map((issue, i) => (
+                    <span 
+                      key={i} 
+                      className="px-4 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-semibold border border-emerald-200 cursor-pointer"
+                      style={{
+                        transform: hoveredCard === `tag-${i}` ? 'scale(1.15) translateY(-2px)' : 'scale(1)',
+                        backgroundColor: hoveredCard === `tag-${i}` ? 'rgb(209 250 229)' : 'rgb(236 253 245)',
+                        transition: 'all 0.2s ease'
+                      }}
+                      onMouseEnter={() => setHoveredCard(`tag-${i}`)}
+                      onMouseLeave={() => setHoveredCard(null)}
+                    >
+                      {issue.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ANALYZING SCREEN */}
+        {view === 'analyzing' && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="p-10">
+              {capturedImage && (
+                <img src={capturedImage} alt="Captured" className="w-full h-72 object-cover rounded-xl mb-8 shadow-sm" />
+              )}
+              
+              <div className="text-center">
+                <div className="w-20 h-20 bg-emerald-100 rounded-2xl mx-auto flex items-center justify-center mb-5">
+                  <Zap className="text-emerald-600 animate-pulse" size={36} />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Analyzing Image</h2>
+                <p className="text-gray-600 mb-6">Processing with AI...</p>
+                
+                <div className="max-w-md mx-auto">
+                  <div className="h-2.5 bg-gray-200 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-emerald-600 to-teal-600 rounded-full transition-all duration-500 ease-out"
+                      style={{width: `${progress}%`}}
+                    ></div>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">{Math.round(progress)}%</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* RESULTS SCREEN */}
+        {view === 'review' && !submitted && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="p-8">
+              {capturedImage && (
+                <img src={capturedImage} alt="Captured" className="w-full h-72 object-cover rounded-xl mb-8 shadow-sm" />
+              )}
+              
+              <div className="mb-8">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900">Analysis Complete</h2>
+                  <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 rounded-lg border border-emerald-200">
+                    <CheckCircle className="text-emerald-600" size={18} />
+                    <span className="text-sm font-semibold text-emerald-700">{analysis?.confidence}% Confident</span>
+                  </div>
+                </div>
+                
+                <div className="grid gap-4">
+                  {[
+                    { icon: AlertCircle, title: 'Issue Type', value: analysis?.type, color: 'bg-emerald-600', id: 'result-1' },
+                    { icon: TrendingUp, title: 'Priority Level', value: analysis?.priority, color: 'bg-teal-600', id: 'result-2', badge: true },
+                    { icon: Clock, title: 'Response Time', value: analysis?.estimatedResponse, color: 'bg-violet-600', id: 'result-3' }
+                  ].map((item, i) => (
+                    <div 
+                      key={i}
+                      className="flex items-start gap-4 p-5 bg-gray-50 rounded-xl border border-gray-200"
+                      style={{
+                        transform: hoveredCard === item.id ? 'translateY(-8px) scale(1.03)' : 'translateY(0) scale(1)',
+                        backgroundColor: hoveredCard === item.id ? '#ffffff' : '#f9fafb',
+                        boxShadow: hoveredCard === item.id ? '0 20px 25px -5px rgba(0, 0, 0, 0.1)' : 'none',
+                        transition: 'all 0.3s ease'
+                      }}
+                      onMouseEnter={() => setHoveredCard(item.id)}
+                      onMouseLeave={() => setHoveredCard(null)}
+                    >
+                      <div className={`w-10 h-10 ${item.color} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                        <item.icon className="text-white" size={20} />
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-semibold text-gray-700 text-sm mb-1">{item.title}</div>
+                        {item.badge ? (
+                          <div className={`inline-block px-3 py-1.5 rounded-lg font-semibold text-sm border ${getSeverityColor(analysis?.severity)}`}>
+                            {item.value}
+                          </div>
+                        ) : (
+                          <div className="text-lg font-bold text-gray-900">{item.value}</div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  
+                  <div className="p-5 bg-emerald-50 border border-emerald-200 rounded-xl">
+                    <div className="font-semibold text-emerald-900 text-sm mb-1">Department</div>
+                    <div className="text-emerald-700 font-medium">{analysis?.department}</div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={resetForm}
+                  style={{
+                    transform: hoveredCard === 'retake-btn' ? 'scale(1.1)' : 'scale(1)',
+                    transition: 'all 0.3s ease'
+                  }}
+                  onMouseEnter={() => setHoveredCard('retake-btn')}
+                  onMouseLeave={() => setHoveredCard(null)}
+                  className="flex-1 px-6 py-3.5 bg-gray-100 text-gray-700 rounded-xl font-semibold"
+                >
+                  Retake Photo
+                </button>
+                <button
+                  onClick={submitReport}
+                  disabled={submitting}
+                  style={{
+                    transform: hoveredCard === 'submit-btn' && !submitting ? 'scale(1.1)' : 'scale(1)',
+                    boxShadow: hoveredCard === 'submit-btn' && !submitting ? '0 20px 25px -5px rgba(16, 185, 129, 0.4)' : 'none',
+                    transition: 'all 0.3s ease'
+                  }}
+                  onMouseEnter={() => setHoveredCard('submit-btn')}
+                  onMouseLeave={() => setHoveredCard(null)}
+                  className="flex-1 px-6 py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {submitting ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <Send size={18} />
+                      Submit Report
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SUCCESS SCREEN */}
+        {submitted && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="p-10 text-center">
+              <div className="w-20 h-20 bg-emerald-100 rounded-2xl mx-auto flex items-center justify-center mb-5">
+                <CheckCircle className="text-emerald-600" size={40} />
+              </div>
+              <h2 className="text-3xl font-bold text-gray-900 mb-2">Report Submitted</h2>
+              <p className="text-gray-600 mb-2">
+                Sent to {analysis?.department}
+              </p>
+              <p className="text-sm text-gray-500 mb-8">
+                Expected response: {analysis?.estimatedResponse}
+              </p>
+              <button
+                onClick={resetForm}
+                style={{
+                  transform: hoveredCard === 'another-btn' ? 'scale(1.1)' : 'scale(1)',
+                  boxShadow: hoveredCard === 'another-btn' ? '0 20px 25px -5px rgba(16, 185, 129, 0.4)' : '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                  transition: 'all 0.3s ease'
+                }}
+                onMouseEnter={() => setHoveredCard('another-btn')}
+                onMouseLeave={() => setHoveredCard(null)}
+                className="px-8 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl font-semibold shadow-md"
+              >
+                Report Another Issue
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* HISTORY SCREEN */}
+        {view === 'history' && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="p-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Your Reports</h2>
+              
+              <div className="space-y-3">
+                {reports.map((report) => (
+                  <div 
+                    key={report.id} 
+                    className="p-5 border border-gray-200 rounded-xl cursor-pointer"
+                    style={{
+                      transform: hoveredCard === `report-${report.id}` ? 'translateY(-10px) scale(1.02)' : 'translateY(0) scale(1)',
+                      borderColor: hoveredCard === `report-${report.id}` ? 'rgb(52 211 153)' : 'rgb(229 231 235)',
+                      boxShadow: hoveredCard === `report-${report.id}` ? '0 20px 25px -5px rgba(0, 0, 0, 0.1)' : 'none',
+                      transition: 'all 0.3s ease'
+                    }}
+                    onMouseEnter={() => setHoveredCard(`report-${report.id}`)}
+                    onMouseLeave={() => setHoveredCard(null)}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900 text-base">{report.type}</h3>
+                        <div className="flex items-center gap-2 text-sm text-gray-600 mt-1.5">
+                          <MapPin size={14} />
+                          {report.location}
+                        </div>
+                      </div>
+                      <div className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${getStatusColor(report.status)}`}>
+                        {report.status.replace('-', ' ')}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                      <span className={`px-3 py-1 rounded-lg text-xs font-semibold border ${getSeverityColor(report.severity)}`}>
+                        {report.severity} priority
+                      </span>
+                      <span className="text-xs text-gray-500 font-medium">{report.date}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default CivicSnapApp;
