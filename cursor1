@@ -1,0 +1,1632 @@
+#!/bin/bash
+
+echo "🚀 Setting up CivicVoice React Native App for VS Code..."
+
+# Create project directory
+PROJECT_DIR="civicvoice-app"
+mkdir -p "$PROJECT_DIR"
+cd "$PROJECT_DIR"
+
+echo "📁 Created project directory: $PROJECT_DIR"
+
+# Create package.json
+cat > package.json << 'EOF'
+{
+  "name": "civicvoice",
+  "version": "1.0.0",
+  "main": "node_modules/expo/AppEntry.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web"
+  },
+  "dependencies": {
+    "expo": "~49.0.0",
+    "expo-status-bar": "~1.6.0",
+    "react": "18.2.0",
+    "react-native": "0.72.6",
+    "react-native-paper": "^5.11.1",
+    "react-native-vector-icons": "^10.0.0",
+    "expo-image-picker": "~14.3.2",
+    "expo-location": "~16.1.0",
+    "react-native-maps": "1.7.1",
+    "axios": "^1.6.0",
+    "@react-navigation/native": "^6.1.7",
+    "@react-navigation/stack": "^6.3.17",
+    "react-native-screens": "~3.22.0",
+    "react-native-safe-area-context": "4.6.3",
+    "react-native-gesture-handler": "~2.12.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.20.0"
+  },
+  "private": true
+}
+EOF
+
+# Create app.json
+cat > app.json << 'EOF'
+{
+  "expo": {
+    "name": "CivicVoice",
+    "slug": "civicvoice",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "This app needs access to location to report city issues with accurate GPS coordinates.",
+        "NSCameraUsageDescription": "This app needs access to camera to take photos of city issues.",
+        "NSPhotoLibraryUsageDescription": "This app needs access to photo library to select images of city issues."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FFFFFF"
+      },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you select images for city issue reports."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow CivicVoice to use your location to accurately report city issues."
+        }
+      ]
+    ]
+  }
+}
+EOF
+
+# Create babel.config.js
+cat > babel.config.js << 'EOF'
+module.exports = function(api) {
+  api.cache(true);
+  return {
+    presets: ['babel-preset-expo'],
+  };
+};
+EOF
+
+# Create .gitignore
+cat > .gitignore << 'EOF'
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Expo
+.expo/
+dist/
+web-build/
+
+# Native
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# Debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# local env files
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+
+# Temporary files
+*.tmp
+*.temp
+EOF
+
+# Create directory structure
+mkdir -p screens components api assets
+
+# Create App.js
+cat > App.js << 'EOF'
+import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
+import { Provider as PaperProvider } from 'react-native-paper';
+import { StatusBar } from 'expo-status-bar';
+
+import HomeScreen from './screens/HomeScreen';
+import ReportScreen from './screens/ReportScreen';
+import MapScreen from './screens/MapScreen';
+import MyReportsScreen from './screens/MyReportsScreen';
+
+const Stack = createStackNavigator();
+
+export default function App() {
+  return (
+    <PaperProvider>
+      <NavigationContainer>
+        <StatusBar style="auto" />
+        <Stack.Navigator
+          initialRouteName="Home"
+          screenOptions={{
+            headerStyle: {
+              backgroundColor: '#2196F3',
+            },
+            headerTintColor: '#fff',
+            headerTitleStyle: {
+              fontWeight: 'bold',
+            },
+          }}
+        >
+          <Stack.Screen 
+            name="Home" 
+            component={HomeScreen} 
+            options={{ title: 'CivicVoice' }}
+          />
+          <Stack.Screen 
+            name="Report" 
+            component={ReportScreen} 
+            options={{ title: 'Report Issue' }}
+          />
+          <Stack.Screen 
+            name="Map" 
+            component={MapScreen} 
+            options={{ title: 'Issues Map' }}
+          />
+          <Stack.Screen 
+            name="MyReports" 
+            component={MyReportsScreen} 
+            options={{ title: 'My Reports' }}
+          />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </PaperProvider>
+  );
+}
+EOF
+
+# Create API service
+cat > api/apiService.js << 'EOF'
+import axios from 'axios';
+
+const API_BASE_URL = 'https://your-backend-url'; // Replace with actual backend URL
+
+const apiService = {
+  // Submit a new report
+  submitReport: async (reportData) => {
+    try {
+      const response = await axios.post(`${API_BASE_URL}/report`, reportData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error submitting report:', error);
+      throw error;
+    }
+  },
+
+  // Get all reports for map display
+  getAllReports: async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/reports`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching reports:', error);
+      // Return mock data if backend is not available
+      return [
+        {
+          id: 1,
+          latitude: 37.7749,
+          longitude: -122.4194,
+          description: 'Pothole on Main Street',
+          category: 'Road Issue',
+          image: null,
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: 2,
+          latitude: 37.7849,
+          longitude: -122.4094,
+          description: 'Broken streetlight',
+          category: 'Infrastructure',
+          image: null,
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: 3,
+          latitude: 37.7649,
+          longitude: -122.4294,
+          description: 'Graffiti on building',
+          category: 'Vandalism',
+          image: null,
+          createdAt: new Date().toISOString(),
+        },
+      ];
+    }
+  },
+
+  // Get user's reports
+  getUserReports: async (userId) => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/reports/user/${userId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching user reports:', error);
+      // Return mock data
+      return [
+        {
+          id: 1,
+          description: 'Pothole on Main Street',
+          category: 'Road Issue',
+          status: 'Submitted',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: 2,
+          description: 'Broken streetlight',
+          category: 'Infrastructure',
+          status: 'In Progress',
+          createdAt: new Date().toISOString(),
+        },
+      ];
+    }
+  },
+};
+
+export default apiService;
+EOF
+
+# Create HomeScreen
+cat > screens/HomeScreen.js << 'EOF'
+import React from 'react';
+import { View, StyleSheet, ScrollView } from 'react-native';
+import { Card, Title, Paragraph, Button, Surface } from 'react-native-paper';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+const HomeScreen = ({ navigation }) => {
+  return (
+    <SafeAreaView style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <Surface style={styles.welcomeCard} elevation={4}>
+          <Card.Content style={styles.welcomeContent}>
+            <Title style={styles.welcomeTitle}>Welcome to CivicVoice</Title>
+            <Paragraph style={styles.welcomeText}>
+              Help make your city better by reporting issues and tracking their progress. 
+              Together, we can build a cleaner, safer community.
+            </Paragraph>
+          </Card.Content>
+        </Surface>
+
+        <View style={styles.buttonContainer}>
+          <Button
+            mode="contained"
+            onPress={() => navigation.navigate('Report')}
+            style={styles.primaryButton}
+            contentStyle={styles.buttonContent}
+            icon="camera"
+          >
+            Report an Issue
+          </Button>
+
+          <Button
+            mode="outlined"
+            onPress={() => navigation.navigate('Map')}
+            style={styles.secondaryButton}
+            contentStyle={styles.buttonContent}
+            icon="map"
+          >
+            View Map
+          </Button>
+
+          <Button
+            mode="text"
+            onPress={() => navigation.navigate('MyReports')}
+            style={styles.tertiaryButton}
+            contentStyle={styles.buttonContent}
+            icon="history"
+          >
+            My Reports
+          </Button>
+        </View>
+
+        <Card style={styles.infoCard}>
+          <Card.Content>
+            <Title style={styles.infoTitle}>How it works</Title>
+            <Paragraph style={styles.infoText}>
+              1. Take a photo of the issue{'\n'}
+              2. Add a description{'\n'}
+              3. Location is automatically detected{'\n'}
+              4. Submit and track progress
+            </Paragraph>
+          </Card.Content>
+        </Card>
+      </ScrollView>
+    </SafeAreaView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  scrollContent: {
+    padding: 16,
+  },
+  welcomeCard: {
+    marginBottom: 24,
+    borderRadius: 12,
+    backgroundColor: '#2196F3',
+  },
+  welcomeContent: {
+    padding: 24,
+  },
+  welcomeTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: 'white',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  welcomeText: {
+    fontSize: 16,
+    color: 'white',
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  buttonContainer: {
+    marginBottom: 24,
+  },
+  primaryButton: {
+    marginBottom: 16,
+    borderRadius: 8,
+    backgroundColor: '#4CAF50',
+  },
+  secondaryButton: {
+    marginBottom: 16,
+    borderRadius: 8,
+    borderColor: '#2196F3',
+  },
+  tertiaryButton: {
+    marginBottom: 16,
+  },
+  buttonContent: {
+    paddingVertical: 8,
+  },
+  infoCard: {
+    borderRadius: 12,
+    backgroundColor: 'white',
+  },
+  infoTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    color: '#333',
+  },
+  infoText: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#666',
+  },
+});
+
+export default HomeScreen;
+EOF
+
+# Create ReportScreen
+cat > screens/ReportScreen.js << 'EOF'
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, ScrollView, Alert, Image } from 'react-native';
+import { Card, Title, Paragraph, Button, TextInput, Surface, ActivityIndicator } from 'react-native-paper';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
+import apiService from '../api/apiService';
+
+const ReportScreen = ({ navigation }) => {
+  const [image, setImage] = useState(null);
+  const [description, setDescription] = useState('');
+  const [location, setLocation] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
+
+  useEffect(() => {
+    getCurrentLocation();
+  }, []);
+
+  const getCurrentLocation = async () => {
+    setLocationLoading(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission denied', 'Location permission is required to report issues.');
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({});
+      setLocation({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+    } catch (error) {
+      console.error('Error getting location:', error);
+      Alert.alert('Error', 'Could not get your location. Please try again.');
+    } finally {
+      setLocationLoading(false);
+    }
+  };
+
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission denied', 'Camera roll permission is required to select photos.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setImage(result.assets[0]);
+    }
+  };
+
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission denied', 'Camera permission is required to take photos.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setImage(result.assets[0]);
+    }
+  };
+
+  const submitReport = async () => {
+    if (!image) {
+      Alert.alert('Error', 'Please take or select a photo.');
+      return;
+    }
+
+    if (!location) {
+      Alert.alert('Error', 'Location is required. Please try again.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', {
+        uri: image.uri,
+        type: 'image/jpeg',
+        name: 'report.jpg',
+      });
+      formData.append('latitude', location.latitude.toString());
+      formData.append('longitude', location.longitude.toString());
+      formData.append('description', description);
+
+      await apiService.submitReport(formData);
+      
+      Alert.alert(
+        'Success!',
+        'Your report has been submitted successfully.',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              setImage(null);
+              setDescription('');
+              navigation.goBack();
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      Alert.alert('Error', 'Failed to submit report. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <Card style={styles.card}>
+          <Card.Content>
+            <Title style={styles.title}>Report a City Issue</Title>
+            <Paragraph style={styles.subtitle}>
+              Help improve your community by reporting problems you encounter.
+            </Paragraph>
+          </Card.Content>
+        </Card>
+
+        <Card style={styles.card}>
+          <Card.Content>
+            <Title style={styles.sectionTitle}>1. Take a Photo</Title>
+            <View style={styles.imageContainer}>
+              {image ? (
+                <Image source={{ uri: image.uri }} style={styles.image} />
+              ) : (
+                <Surface style={styles.imagePlaceholder}>
+                  <Paragraph style={styles.placeholderText}>No image selected</Paragraph>
+                </Surface>
+              )}
+            </View>
+            <View style={styles.imageButtons}>
+              <Button
+                mode="outlined"
+                onPress={takePhoto}
+                style={styles.imageButton}
+                icon="camera"
+              >
+                Take Photo
+              </Button>
+              <Button
+                mode="outlined"
+                onPress={pickImage}
+                style={styles.imageButton}
+                icon="image"
+              >
+                Choose from Gallery
+              </Button>
+            </View>
+          </Card.Content>
+        </Card>
+
+        <Card style={styles.card}>
+          <Card.Content>
+            <Title style={styles.sectionTitle}>2. Location</Title>
+            {locationLoading ? (
+              <View style={styles.locationLoading}>
+                <ActivityIndicator size="small" />
+                <Paragraph style={styles.loadingText}>Getting your location...</Paragraph>
+              </View>
+            ) : location ? (
+              <View style={styles.locationInfo}>
+                <Paragraph style={styles.locationText}>
+                  ✓ Location detected: {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
+                </Paragraph>
+                <Button
+                  mode="text"
+                  onPress={getCurrentLocation}
+                  style={styles.refreshButton}
+                  icon="refresh"
+                >
+                  Refresh Location
+                </Button>
+              </View>
+            ) : (
+              <View style={styles.locationError}>
+                <Paragraph style={styles.errorText}>
+                  Could not detect location
+                </Paragraph>
+                <Button
+                  mode="outlined"
+                  onPress={getCurrentLocation}
+                  style={styles.retryButton}
+                  icon="map-marker"
+                >
+                  Try Again
+                </Button>
+              </View>
+            )}
+          </Card.Content>
+        </Card>
+
+        <Card style={styles.card}>
+          <Card.Content>
+            <Title style={styles.sectionTitle}>3. Description (Optional)</Title>
+            <TextInput
+              label="Describe the issue"
+              value={description}
+              onChangeText={setDescription}
+              multiline
+              numberOfLines={4}
+              style={styles.textInput}
+              placeholder="e.g., Large pothole on Main Street, about 2 feet wide..."
+            />
+          </Card.Content>
+        </Card>
+
+        <Button
+          mode="contained"
+          onPress={submitReport}
+          loading={loading}
+          disabled={!image || !location || loading}
+          style={styles.submitButton}
+          contentStyle={styles.submitButtonContent}
+          icon="send"
+        >
+          Submit Report
+        </Button>
+      </ScrollView>
+    </SafeAreaView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  scrollContent: {
+    padding: 16,
+  },
+  card: {
+    marginBottom: 16,
+    borderRadius: 12,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: '#333',
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#666',
+    lineHeight: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    color: '#333',
+  },
+  imageContainer: {
+    marginBottom: 16,
+  },
+  image: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+  },
+  imagePlaceholder: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f0f0f0',
+  },
+  placeholderText: {
+    color: '#999',
+    fontSize: 16,
+  },
+  imageButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  imageButton: {
+    flex: 1,
+    marginHorizontal: 8,
+  },
+  locationLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+  },
+  loadingText: {
+    marginLeft: 8,
+    color: '#666',
+  },
+  locationInfo: {
+    paddingVertical: 8,
+  },
+  locationText: {
+    color: '#4CAF50',
+    fontSize: 16,
+    marginBottom: 8,
+  },
+  refreshButton: {
+    alignSelf: 'flex-start',
+  },
+  locationError: {
+    paddingVertical: 8,
+  },
+  errorText: {
+    color: '#f44336',
+    fontSize: 16,
+    marginBottom: 8,
+  },
+  retryButton: {
+    alignSelf: 'flex-start',
+  },
+  textInput: {
+    backgroundColor: 'transparent',
+  },
+  submitButton: {
+    marginTop: 16,
+    borderRadius: 8,
+    backgroundColor: '#4CAF50',
+  },
+  submitButtonContent: {
+    paddingVertical: 8,
+  },
+});
+
+export default ReportScreen;
+EOF
+
+# Create MapScreen
+cat > screens/MapScreen.js << 'EOF'
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, Alert } from 'react-native';
+import MapView, { Marker, Callout } from 'react-native-maps';
+import { Card, Title, Paragraph, ActivityIndicator, Surface } from 'react-native-paper';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import apiService from '../api/apiService';
+
+const MapScreen = () => {
+  const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedReport, setSelectedReport] = useState(null);
+
+  useEffect(() => {
+    loadReports();
+  }, []);
+
+  const loadReports = async () => {
+    try {
+      setLoading(true);
+      const reportsData = await apiService.getAllReports();
+      setReports(reportsData);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to load reports. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getMarkerColor = (category) => {
+    switch (category) {
+      case 'Road Issue':
+        return '#FF5722';
+      case 'Infrastructure':
+        return '#2196F3';
+      case 'Vandalism':
+        return '#9C27B0';
+      case 'Trash':
+        return '#4CAF50';
+      default:
+        return '#FF9800';
+    }
+  };
+
+  const getMarkerIcon = (category) => {
+    switch (category) {
+      case 'Road Issue':
+        return '🚧';
+      case 'Infrastructure':
+        return '💡';
+      case 'Vandalism':
+        return '🎨';
+      case 'Trash':
+        return '🗑️';
+      default:
+        return '📍';
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2196F3" />
+          <Paragraph style={styles.loadingText}>Loading reports...</Paragraph>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <MapView
+        style={styles.map}
+        initialRegion={{
+          latitude: 37.7749,
+          longitude: -122.4194,
+          latitudeDelta: 0.0922,
+          longitudeDelta: 0.0421,
+        }}
+        showsUserLocation={true}
+        showsMyLocationButton={true}
+      >
+        {reports.map((report) => (
+          <Marker
+            key={report.id}
+            coordinate={{
+              latitude: report.latitude,
+              longitude: report.longitude,
+            }}
+            pinColor={getMarkerColor(report.category)}
+            onPress={() => setSelectedReport(report)}
+          >
+            <Callout>
+              <View style={styles.calloutContainer}>
+                <Title style={styles.calloutTitle}>
+                  {getMarkerIcon(report.category)} {report.category}
+                </Title>
+                <Paragraph style={styles.calloutDescription}>
+                  {report.description}
+                </Paragraph>
+                <Paragraph style={styles.calloutDate}>
+                  Reported: {new Date(report.createdAt).toLocaleDateString()}
+                </Paragraph>
+              </View>
+            </Callout>
+          </Marker>
+        ))}
+      </MapView>
+
+      {selectedReport && (
+        <Surface style={styles.selectedReportCard} elevation={4}>
+          <Card.Content>
+            <Title style={styles.selectedTitle}>
+              {getMarkerIcon(selectedReport.category)} {selectedReport.category}
+            </Title>
+            <Paragraph style={styles.selectedDescription}>
+              {selectedReport.description}
+            </Paragraph>
+            <Paragraph style={styles.selectedDate}>
+              Reported: {new Date(selectedReport.createdAt).toLocaleDateString()}
+            </Paragraph>
+            <Paragraph style={styles.selectedLocation}>
+              Location: {selectedReport.latitude.toFixed(4)}, {selectedReport.longitude.toFixed(4)}
+            </Paragraph>
+          </Card.Content>
+        </Surface>
+      )}
+
+      <Surface style={styles.legendCard} elevation={2}>
+        <Card.Content>
+          <Title style={styles.legendTitle}>Legend</Title>
+          <View style={styles.legendItems}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendColor, { backgroundColor: '#FF5722' }]} />
+              <Paragraph style={styles.legendText}>Road Issues</Paragraph>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendColor, { backgroundColor: '#2196F3' }]} />
+              <Paragraph style={styles.legendText}>Infrastructure</Paragraph>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendColor, { backgroundColor: '#9C27B0' }]} />
+              <Paragraph style={styles.legendText}>Vandalism</Paragraph>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendColor, { backgroundColor: '#4CAF50' }]} />
+              <Paragraph style={styles.legendText}>Trash</Paragraph>
+            </View>
+          </View>
+        </Card.Content>
+      </Surface>
+    </SafeAreaView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  map: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+  },
+  calloutContainer: {
+    width: 200,
+    padding: 8,
+  },
+  calloutTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  calloutDescription: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  calloutDate: {
+    fontSize: 12,
+    color: '#666',
+  },
+  selectedReportCard: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    right: 16,
+    borderRadius: 8,
+    backgroundColor: 'white',
+  },
+  selectedTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  selectedDescription: {
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  selectedDate: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+  },
+  selectedLocation: {
+    fontSize: 12,
+    color: '#999',
+  },
+  legendCard: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    borderRadius: 8,
+    backgroundColor: 'white',
+    maxWidth: 200,
+  },
+  legendTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  legendItems: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 12,
+    marginBottom: 4,
+  },
+  legendColor: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 6,
+  },
+  legendText: {
+    fontSize: 12,
+    color: '#666',
+  },
+});
+
+export default MapScreen;
+EOF
+
+# Create MyReportsScreen
+cat > screens/MyReportsScreen.js << 'EOF'
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import { Card, Title, Paragraph, Chip, ActivityIndicator, Surface, FAB } from 'react-native-paper';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import apiService from '../api/apiService';
+
+const MyReportsScreen = ({ navigation }) => {
+  const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    loadReports();
+  }, []);
+
+  const loadReports = async () => {
+    try {
+      setLoading(true);
+      // Using a mock userId for now
+      const reportsData = await apiService.getUserReports('user123');
+      setReports(reportsData);
+    } catch (error) {
+      console.error('Error loading reports:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadReports();
+    setRefreshing(false);
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'Submitted':
+        return '#FF9800';
+      case 'In Progress':
+        return '#2196F3';
+      case 'Resolved':
+        return '#4CAF50';
+      case 'Rejected':
+        return '#f44336';
+      default:
+        return '#9E9E9E';
+    }
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'Submitted':
+        return '📝';
+      case 'In Progress':
+        return '🔧';
+      case 'Resolved':
+        return '✅';
+      case 'Rejected':
+        return '❌';
+      default:
+        return '❓';
+    }
+  };
+
+  const getCategoryIcon = (category) => {
+    switch (category) {
+      case 'Road Issue':
+        return '🚧';
+      case 'Infrastructure':
+        return '💡';
+      case 'Vandalism':
+        return '🎨';
+      case 'Trash':
+        return '🗑️';
+      default:
+        return '📍';
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2196F3" />
+          <Paragraph style={styles.loadingText}>Loading your reports...</Paragraph>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        {reports.length === 0 ? (
+          <Card style={styles.emptyCard}>
+            <Card.Content style={styles.emptyContent}>
+              <Title style={styles.emptyTitle}>No Reports Yet</Title>
+              <Paragraph style={styles.emptyText}>
+                You haven't submitted any reports yet. Tap the + button to report your first issue!
+              </Paragraph>
+            </Card.Content>
+          </Card>
+        ) : (
+          <>
+            <Card style={styles.summaryCard}>
+              <Card.Content>
+                <Title style={styles.summaryTitle}>Your Reports Summary</Title>
+                <View style={styles.summaryStats}>
+                  <View style={styles.statItem}>
+                    <Paragraph style={styles.statNumber}>{reports.length}</Paragraph>
+                    <Paragraph style={styles.statLabel}>Total Reports</Paragraph>
+                  </View>
+                  <View style={styles.statItem}>
+                    <Paragraph style={styles.statNumber}>
+                      {reports.filter(r => r.status === 'Resolved').length}
+                    </Paragraph>
+                    <Paragraph style={styles.statLabel}>Resolved</Paragraph>
+                  </View>
+                  <View style={styles.statItem}>
+                    <Paragraph style={styles.statNumber}>
+                      {reports.filter(r => r.status === 'In Progress').length}
+                    </Paragraph>
+                    <Paragraph style={styles.statLabel}>In Progress</Paragraph>
+                  </View>
+                </View>
+              </Card.Content>
+            </Card>
+
+            {reports.map((report, index) => (
+              <Card key={report.id || index} style={styles.reportCard}>
+                <Card.Content>
+                  <View style={styles.reportHeader}>
+                    <View style={styles.reportTitleContainer}>
+                      <Title style={styles.reportTitle}>
+                        {getCategoryIcon(report.category)} {report.category}
+                      </Title>
+                      <Chip
+                        mode="outlined"
+                        style={[styles.statusChip, { borderColor: getStatusColor(report.status) }]}
+                        textStyle={{ color: getStatusColor(report.status) }}
+                        icon={() => (
+                          <Paragraph style={{ color: getStatusColor(report.status) }}>
+                            {getStatusIcon(report.status)}
+                          </Paragraph>
+                        )}
+                      >
+                        {report.status}
+                      </Chip>
+                    </View>
+                    <Paragraph style={styles.reportDate}>
+                      {new Date(report.createdAt).toLocaleDateString()}
+                    </Paragraph>
+                  </View>
+                  
+                  <Paragraph style={styles.reportDescription}>
+                    {report.description}
+                  </Paragraph>
+
+                  {report.status === 'In Progress' && (
+                    <Surface style={styles.progressCard} elevation={1}>
+                      <Card.Content style={styles.progressContent}>
+                        <Paragraph style={styles.progressText}>
+                          🚀 Your report is being reviewed by city officials
+                        </Paragraph>
+                      </Card.Content>
+                    </Surface>
+                  )}
+
+                  {report.status === 'Resolved' && (
+                    <Surface style={styles.resolvedCard} elevation={1}>
+                      <Card.Content style={styles.resolvedContent}>
+                        <Paragraph style={styles.resolvedText}>
+                          ✅ This issue has been resolved! Thank you for your contribution.
+                        </Paragraph>
+                      </Card.Content>
+                    </Surface>
+                  )}
+                </Card.Content>
+              </Card>
+            ))}
+          </>
+        )}
+      </ScrollView>
+
+      <FAB
+        style={styles.fab}
+        icon="plus"
+        onPress={() => navigation.navigate('Report')}
+        label="Report Issue"
+      />
+    </SafeAreaView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 80, // Space for FAB
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+  },
+  emptyCard: {
+    marginTop: 32,
+    borderRadius: 12,
+  },
+  emptyContent: {
+    alignItems: 'center',
+    paddingVertical: 32,
+  },
+  emptyTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    color: '#333',
+  },
+  emptyText: {
+    fontSize: 16,
+    textAlign: 'center',
+    color: '#666',
+    lineHeight: 24,
+  },
+  summaryCard: {
+    marginBottom: 16,
+    borderRadius: 12,
+    backgroundColor: '#2196F3',
+  },
+  summaryTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 16,
+  },
+  summaryStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  statLabel: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 4,
+  },
+  reportCard: {
+    marginBottom: 16,
+    borderRadius: 12,
+  },
+  reportHeader: {
+    marginBottom: 12,
+  },
+  reportTitleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  reportTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    flex: 1,
+    marginRight: 8,
+  },
+  statusChip: {
+    height: 32,
+  },
+  reportDate: {
+    fontSize: 14,
+    color: '#666',
+  },
+  reportDescription: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#333',
+    marginBottom: 12,
+  },
+  progressCard: {
+    borderRadius: 8,
+    backgroundColor: '#E3F2FD',
+  },
+  progressContent: {
+    paddingVertical: 8,
+  },
+  progressText: {
+    fontSize: 14,
+    color: '#1976D2',
+    textAlign: 'center',
+  },
+  resolvedCard: {
+    borderRadius: 8,
+    backgroundColor: '#E8F5E8',
+  },
+  resolvedContent: {
+    paddingVertical: 8,
+  },
+  resolvedText: {
+    fontSize: 14,
+    color: '#2E7D32',
+    textAlign: 'center',
+  },
+  fab: {
+    position: 'absolute',
+    margin: 16,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#4CAF50',
+  },
+});
+
+export default MyReportsScreen;
+EOF
+
+# Create LoadingSpinner component
+cat > components/LoadingSpinner.js << 'EOF'
+import React from 'react';
+import { View, StyleSheet } from 'react-native';
+import { ActivityIndicator, Paragraph } from 'react-native-paper';
+
+const LoadingSpinner = ({ message = 'Loading...', size = 'large' }) => {
+  return (
+    <View style={styles.container}>
+      <ActivityIndicator size={size} color="#2196F3" />
+      <Paragraph style={styles.message}>{message}</Paragraph>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  message: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+  },
+});
+
+export default LoadingSpinner;
+EOF
+
+# Create README
+cat > README.md << 'EOF'
+# CivicVoice - City Issue Reporting App
+
+A React Native mobile application that allows citizens to report city issues like potholes, graffiti, broken streetlights, and other problems. The app automatically captures GPS coordinates and allows users to take photos to document issues.
+
+## Features
+
+- 📱 **Report Issues**: Take photos and report city problems with automatic GPS detection
+- 🗺️ **Interactive Map**: View all reported issues on an interactive map with categorized markers
+- 📊 **Track Progress**: Monitor the status of your submitted reports
+- 🎨 **Modern UI**: Clean, intuitive interface built with React Native Paper
+- 📍 **Location Services**: Automatic GPS coordinate detection for accurate reporting
+
+## Screens
+
+1. **Home Screen**: Welcome screen with navigation to main features
+2. **Report Screen**: Photo capture, GPS detection, and issue description
+3. **Map Screen**: Interactive map showing all reported issues with markers
+4. **My Reports Screen**: Personal dashboard showing your submitted reports
+
+## Tech Stack
+
+- **React Native** with Expo
+- **React Navigation** for screen navigation
+- **React Native Paper** for UI components
+- **Expo Image Picker** for camera/gallery access
+- **Expo Location** for GPS coordinates
+- **React Native Maps** for map display
+- **Axios** for API communication
+
+## Installation
+
+1. Install dependencies:
+```bash
+npm install
+```
+
+2. Start the development server:
+```bash
+npm start
+```
+
+3. Run on device/simulator:
+```bash
+# iOS
+npm run ios
+
+# Android
+npm run android
+```
+
+## Required Permissions
+
+The app requires the following permissions:
+- **Camera**: To take photos of issues
+- **Photo Library**: To select existing photos
+- **Location**: To automatically detect GPS coordinates
+
+## API Integration
+
+The app is configured to work with a backend API. Update the `API_BASE_URL` in `api/apiService.js` to point to your backend server.
+
+### API Endpoints
+
+- `POST /report` - Submit a new issue report
+- `GET /reports` - Fetch all reports for map display
+- `GET /reports/user/:userId` - Fetch user's personal reports
+
+## Project Structure
+
+```
+civicvoice-app/
+├── screens/
+│   ├── HomeScreen.js
+│   ├── ReportScreen.js
+│   ├── MapScreen.js
+│   └── MyReportsScreen.js
+├── api/
+│   └── apiService.js
+├── components/
+├── App.js
+├── package.json
+└── app.json
+```
+
+## Mock Data
+
+The app includes mock data for testing when the backend is not available. This allows you to see the full functionality without setting up a server.
+
+## Development Notes
+
+- The app uses Expo for easy development and deployment
+- All screens are responsive and work on both iOS and Android
+- Location services require physical device or simulator with location enabled
+- Camera functionality requires physical device for testing
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License.
+EOF
+
+# Create VS Code settings
+mkdir -p .vscode
+cat > .vscode/settings.json << 'EOF'
+{
+  "emmet.includeLanguages": {
+    "javascript": "javascriptreact"
+  },
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "files.associations": {
+    "*.js": "javascriptreact"
+  },
+  "react-native-tools.projectRoot": "./",
+  "expo.enableTelemetry": false
+}
+EOF
+
+# Create VS Code launch configuration
+cat > .vscode/launch.json << 'EOF'
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Android",
+      "cwd": "${workspaceFolder}",
+      "type": "reactnative",
+      "request": "launch",
+      "platform": "android"
+    },
+    {
+      "name": "Debug iOS",
+      "cwd": "${workspaceFolder}",
+      "type": "reactnative",
+      "request": "launch",
+      "platform": "ios"
+    }
+  ]
+}
+EOF
+
+# Create VS Code tasks
+cat > .vscode/tasks.json << 'EOF'
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start Expo",
+      "type": "shell",
+      "command": "npm start",
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Install Dependencies",
+      "type": "shell",
+      "command": "npm install",
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    }
+  ]
+}
+EOF
+
+echo "✅ CivicVoice React Native app created successfully!"
+echo ""
+echo "📁 Project location: $(pwd)"
+echo ""
+echo "🚀 Next steps:"
+echo "1. Open this folder in VS Code"
+echo "2. Run: npm install"
+echo "3. Run: npm start"
+echo "4. Press 'i' for iOS or 'a' for Android"
+echo ""
+echo "📱 Features included:"
+echo "✅ Complete React Native app with Expo"
+echo "✅ 4 screens: Home, Report, Map, MyReports"
+echo "✅ Photo capture with camera/gallery"
+echo "✅ GPS location detection"
+echo "✅ Interactive map with markers"
+echo "✅ Modern UI with React Native Paper"
+echo "✅ API integration with mock data"
+echo "✅ VS Code configuration"
+echo ""
+echo "🎉 Ready to code! Happy hacking!"
